@@ -1116,10 +1116,10 @@ function kinetic(getPoint, scroll, settings) {
   var amplitude = typeof settings.amplitude === 'number' ? settings.amplitude : 0.25;
   var cancelAnimationFrame = typeof settings.cancelAnimationFrame === 'function' ? settings.cancelAnimationFrame : getCancelAnimationFrame();
   var requestAnimationFrame = typeof settings.requestAnimationFrame === 'function' ? settings.requestAnimationFrame : getRequestAnimationFrame();
+  var timeConstant = typeof settings.timeConstant === 'number' ? settings.timeConstant : 342;
 
   var lastPoint;
   var timestamp;
-  var timeConstant = 342;
 
   var ticker;
   var vx, targetX, ax;
@@ -1327,12 +1327,12 @@ function makeSvgController(svgElement, options) {
   }
 
   function getBBox() {
-    var bbox =  svgElement.getBBox();
+    var boundingBox =  svgElement.getBBox();
     return {
-      left: bbox.x,
-      top: bbox.y,
-      width: bbox.width,
-      height: bbox.height,
+      left: boundingBox.x,
+      top: boundingBox.y,
+      width: boundingBox.width,
+      height: boundingBox.height,
     };
   }
 
