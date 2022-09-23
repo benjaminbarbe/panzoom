@@ -915,7 +915,10 @@ function createPanZoom(domElement, options) {
     });
   }
 
-  function smoothTransform(targetTransform, done) {
+  function smoothTransform(targetTransform, done, opts) {
+    var easing = opts.easing ? opts.easing : "easeInOut";
+    var duration = typeof opts.duration === 'number' ? opts.duration : 400;
+    
     smoothScroll.cancel();
     cancelZoomAnimation();
     cancelTransformAnimation();
@@ -934,7 +937,8 @@ function createPanZoom(domElement, options) {
           });
         }
       },
-      easing: "easeInOut"
+      easing: easing,
+      duration: duration
     });
   }
 
