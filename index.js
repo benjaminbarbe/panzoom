@@ -112,6 +112,7 @@ function createPanZoom(domElement, options) {
 
   var moveByAnimation;
   var zoomToAnimation;
+  var transformAnimation;
 
   var multiTouch;
   var paused = false;
@@ -128,6 +129,7 @@ function createPanZoom(domElement, options) {
     zoomAbs: zoomAbs,
     smoothZoom: smoothZoom,
     smoothZoomAbs: smoothZoomAbs,
+    smoothTransform: smoothTransform,
     showRectangle: showRectangle,
 
     pause: pause,
@@ -478,6 +480,7 @@ function createPanZoom(domElement, options) {
 
   function scroll(x, y) {
     cancelZoomAnimation();
+    cancelTransformAnimation();
     moveTo(x, y);
   }
 
@@ -886,6 +889,7 @@ function createPanZoom(domElement, options) {
 
     smoothScroll.cancel();
     cancelZoomAnimation();
+    cancelTransformAnimation();
 
     zoomToAnimation = animate(from, to, {
       step: function (v) {
@@ -902,11 +906,35 @@ function createPanZoom(domElement, options) {
 
     smoothScroll.cancel();
     cancelZoomAnimation();
+    cancelTransformAnimation();
 
     zoomToAnimation = animate(from, to, {
       step: function (v) {
         zoomAbs(clientX, clientY, v.scale);
       }
+    });
+  }
+
+  function smoothTransform(targetTransform, done) {
+    smoothScroll.cancel();
+    cancelZoomAnimation();
+    cancelTransformAnimation();
+
+    transformAnimation = animate(transform, targetTransform, {
+      step: function(t) {
+        transform = t;
+        makeDirty();
+      },
+      done: function(t) {
+        transform = t;
+        makeDirty();
+        if (typeof done === "function") {
+          window.requestAnimationFrame(function() {
+            done();
+          });
+        }
+      },
+      easing: "easeInOut"
     });
   }
 
@@ -921,6 +949,7 @@ function createPanZoom(domElement, options) {
   function publicZoomTo(clientX, clientY, scaleMultiplier) {
     smoothScroll.cancel();
     cancelZoomAnimation();
+    cancelTransformAnimation();
     return zoomByRatio(clientX, clientY, scaleMultiplier);
   }
 
@@ -928,6 +957,13 @@ function createPanZoom(domElement, options) {
     if (zoomToAnimation) {
       zoomToAnimation.cancel();
       zoomToAnimation = null;
+    }
+  }
+
+  function cancelTransformAnimation() {
+    if (transformAnimation) {
+      transformAnimation.cancel();
+      transformAnimation = null;
     }
   }
 
