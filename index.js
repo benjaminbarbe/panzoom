@@ -293,6 +293,11 @@ function createPanZoom(domElement, options) {
 
   function setMinZoom(newMinZoom) {
     minZoom = newMinZoom;
+    if (transform.scale < minZoom) {
+      transform.scale = minZoom;
+      keepTransformInsideBounds();
+      makeDirty();
+    }
   }
 
   function getMaxZoom() {
@@ -301,6 +306,11 @@ function createPanZoom(domElement, options) {
 
   function setMaxZoom(newMaxZoom) {
     maxZoom = newMaxZoom;
+    if (transform.scale > maxZoom) {
+      transform.scale = maxZoom;
+      keepTransformInsideBounds();
+      makeDirty();
+    }
   }
 
   function getTransformOrigin() {

@@ -64,6 +64,9 @@ function createPanZoom(domElement, options) {
   var maxZoom = typeof options.maxZoom === 'number' ? options.maxZoom : Number.POSITIVE_INFINITY;
   var minZoom = typeof options.minZoom === 'number' ? options.minZoom : 0;
 
+  var panEnabled = typeof options.panEnabled === 'boolean' ? options.panEnabled : true;
+  var zoomEnabled = typeof options.zoomEnabled === 'boolean' ? options.zoomEnabled : true;
+
   var boundsPadding = typeof options.boundsPadding === 'number' ? options.boundsPadding : 0.05;
   var zoomDoubleClickSpeed = typeof options.zoomDoubleClickSpeed === 'number' ? options.zoomDoubleClickSpeed : defaultDoubleTapZoomSpeed;
   var beforeWheel = options.beforeWheel || noop;
@@ -122,20 +125,28 @@ function createPanZoom(domElement, options) {
 
   var api = {
     dispose: dispose,
-    moveBy: internalMoveBy,
+    moveBy: (dx, dy, smooth) => internalMoveBy(dx, dy, smooth, true),
     moveTo: moveTo,
     smoothMoveTo: smoothMoveTo, 
     centerOn: centerOn,
     zoomTo: publicZoomTo,
     zoomAbs: zoomAbs,
-    smoothZoom: smoothZoom,
-    smoothZoomAbs: smoothZoomAbs,
+    smoothZoom: (clientX, clientY, scaleMultiplier) => smoothZoom(clientX, clientY, scaleMultiplier, true),
+    smoothZoomAbs: (clientX, clientY, toScaleValue) => smoothZoomAbs(clientX, clientY, toScaleValue, true),
     smoothTransform: smoothTransform,
     showRectangle: showRectangle,
 
     pause: pause,
     resume: resume,
     isPaused: isPaused,
+
+    disablePan: disablePan,
+    enablePan: enablePan,
+    isPanEnabled: isPanEnabled,
+
+    disableZoom: disableZoom,
+    enableZoom: enableZoom,
+    isZoomEnabled: isZoomEnabled,
 
     getTransform: getTransformModel,
 
@@ -156,7 +167,7 @@ function createPanZoom(domElement, options) {
   
   var initialX = typeof options.initialX === 'number' ? options.initialX : transform.x;
   var initialY = typeof options.initialY === 'number' ? options.initialY : transform.y;
-  var initialZoom = typeof options.initialZoom === 'number' ? options.initialZoom : transform.scale;
+  var initialZoom = Math.min(Math.max(typeof options.initialZoom === 'number' ? options.initialZoom : transform.scale, minZoom), maxZoom);
 
   if(initialX != transform.x || initialY != transform.y || initialZoom != transform.scale){
     zoomAbs(initialX, initialY, initialZoom);
@@ -178,6 +189,30 @@ function createPanZoom(domElement, options) {
 
   function isPaused() {
     return paused;
+  }
+
+  function disablePan() {
+    panEnabled = false;
+  }
+
+  function enablePan() {
+    panEnabled = true;
+  }
+
+  function isPanEnabled() {
+    return panEnabled;
+  }
+
+  function disableZoom() {
+    zoomEnabled = false;
+  }
+
+  function enableZoom() {
+    zoomEnabled = true;
+  }
+
+  function isZoomEnabled() {
+    return zoomEnabled;
   }
 
   function showRectangle(rect) {
@@ -259,6 +294,11 @@ function createPanZoom(domElement, options) {
 
   function setMinZoom(newMinZoom) {
     minZoom = newMinZoom;
+    if (transform.scale < minZoom) {
+      transform.scale = minZoom;
+      keepTransformInsideBounds();
+      makeDirty();
+    }
   }
 
   function getMaxZoom() {
@@ -267,6 +307,11 @@ function createPanZoom(domElement, options) {
 
   function setMaxZoom(newMaxZoom) {
     maxZoom = newMaxZoom;
+    if (transform.scale > maxZoom) {
+      transform.scale = maxZoom;
+      keepTransformInsideBounds();
+      makeDirty();
+    }
   }
 
   function getTransformOrigin() {
@@ -450,14 +495,18 @@ function createPanZoom(domElement, options) {
     var dx = container.width / 2 - cx;
     var dy = container.height / 2 - cy;
 
-    internalMoveBy(dx, dy, true);
+    internalMoveBy(dx, dy, true, true);
   }
 
   function smoothMoveTo(x, y){
-    internalMoveBy(x - transform.x, y - transform.y, true);
+    internalMoveBy(x - transform.x, y - transform.y, true, true);
   }
 
-  function internalMoveBy(dx, dy, smooth) {
+  function internalMoveBy(dx, dy, smooth, fromApi) {
+    if (!fromApi && !panEnabled) {
+      return ;
+    }
+
     if (!smooth) {
       return moveBy(dx, dy);
     }
@@ -578,6 +627,10 @@ function createPanZoom(domElement, options) {
     }
 
     if (z) {
+      if (!zoomEnabled) {
+        return;
+      }
+
       var scaleMultiplier = getScaleMultiplier(z * 100);
       var offset = transformOrigin ? getTransformOriginOffset() : midPoint();
       publicZoomTo(offset.x, offset.y, scaleMultiplier);
@@ -699,9 +752,11 @@ function createPanZoom(domElement, options) {
         mouseY = offset.y;
       }
 
-      publicZoomTo(mouseX, mouseY, scaleMultiplier);
-
-      pinchZoomLength = currentPinchLength;
+      if (zoomEnabled) {
+        publicZoomTo(mouseX, mouseY, scaleMultiplier);
+  
+        pinchZoomLength = currentPinchLength;
+      }
       e.stopPropagation();
       e.preventDefault();
     }
@@ -766,6 +821,10 @@ function createPanZoom(domElement, options) {
   }
 
   function onDoubleClick(e) {
+    if (!zoomEnabled) {
+      return;
+    }
+
     beforeDoubleClick(e);
     var offset = getOffsetXY(e);
     if (transformOrigin) {
@@ -854,6 +913,10 @@ function createPanZoom(domElement, options) {
   }
 
   function onMouseWheel(e) {
+    if (!zoomEnabled) {
+      return;
+    }
+
     // if client does not want to handle this event - just ignore the call
     if (beforeWheel(e)) return;
 
@@ -883,7 +946,11 @@ function createPanZoom(domElement, options) {
     return { x: offsetX, y: offsetY };
   }
 
-  function smoothZoom(clientX, clientY, scaleMultiplier) {
+  function smoothZoom(clientX, clientY, scaleMultiplier, fromApi) {
+    if (!fromApi && !zoomEnabled) {
+      return;
+    }
+
     var fromValue = transform.scale;
     var from = { scale: fromValue };
     var to = { scale: scaleMultiplier * fromValue };
@@ -900,7 +967,11 @@ function createPanZoom(domElement, options) {
     });
   }
 
-  function smoothZoomAbs(clientX, clientY, toScaleValue) {
+  function smoothZoomAbs(clientX, clientY, toScaleValue, fromApi) {
+    if (!fromApi && !zoomEnabled) {
+      return;
+    }
+
     var fromValue = transform.scale;
     var from = { scale: fromValue };
     var to = { scale: toScaleValue };
