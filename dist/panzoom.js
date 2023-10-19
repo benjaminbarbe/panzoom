@@ -131,9 +131,10 @@ function createPanZoom(domElement, options) {
     centerOn: centerOn,
     zoomTo: publicZoomTo,
     zoomAbs: zoomAbs,
+    transformAbs: transformAbs,
     smoothZoom: (clientX, clientY, scaleMultiplier) => smoothZoom(clientX, clientY, scaleMultiplier, true),
     smoothZoomAbs: (clientX, clientY, toScaleValue) => smoothZoomAbs(clientX, clientY, toScaleValue, true),
-    smoothTransform: smoothTransform,
+    smoothTransformAbs: smoothTransformAbs,
     showRectangle: showRectangle,
 
     pause: pause,
@@ -169,8 +170,13 @@ function createPanZoom(domElement, options) {
   var initialY = typeof options.initialY === 'number' ? options.initialY : transform.y;
   var initialZoom = Math.min(Math.max(typeof options.initialZoom === 'number' ? options.initialZoom : transform.scale, minZoom), maxZoom);
 
-  if(initialX != transform.x || initialY != transform.y || initialZoom != transform.scale){
-    zoomAbs(initialX, initialY, initialZoom);
+  if ((initialX != transform.x || initialY != transform.y) && initialZoom != transform.scale) {
+    transformAbs(initialX, initialY, initialZoom);
+  } else if (initialX != transform.x || initialY != transform.y) {
+    moveTo(initialX, initialY);
+  } else if (initialZoom != transform.scale) {
+    var offset = transformOrigin ? getTransformOriginOffset() : midPoint();
+    zoomAbs(offset.x, offset.y, initialZoom);
   }
 
   return api;
@@ -946,6 +952,20 @@ function createPanZoom(domElement, options) {
     return { x: offsetX, y: offsetY };
   }
 
+  function transformAbs(x, y, zoom) {
+    smoothScroll.cancel();
+    cancelZoomAnimation();
+    cancelTransformAnimation();
+
+    transform.x = x;
+    transform.y = y;
+    transform.scale = zoom;
+    keepTransformInsideBounds();
+    makeDirty();
+
+    triggerEvent('transform');
+  }
+
   function smoothZoom(clientX, clientY, scaleMultiplier, fromApi) {
     if (!fromApi && !zoomEnabled) {
       return;
@@ -987,7 +1007,7 @@ function createPanZoom(domElement, options) {
     });
   }
 
-  function smoothTransform(targetTransform, done, opts) {
+  function smoothTransformAbs(targetTransform, done, opts) {
     var easing = opts.easing ? opts.easing : "easeInOut";
     var duration = typeof opts.duration === 'number' ? opts.duration : 400;
     
