@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "tap --branches=30 --lines=30 --statements=30 --functions=30 test/*.js",
-    "build": "browserify -s panzoom ./index.js > dist/panzoom.js && uglifyjs dist/panzoom.js > dist/panzoom.min.js",
+    "build": "browserify -t [ babelify --presets [@babel/preset-env] ] -s panzoom ./index.js > dist/panzoom.js && uglifyjs dist/panzoom.js > dist/panzoom.min.js",
     "start": "npm run build"
   },
   "keywords": [
@@ -22,10 +22,14 @@
   },
   "dependencies": {
     "amator": "^1.1.0",
+    "core-js": "^3.33.2",
     "ngraph.events": "^1.2.2",
     "wheel": "^1.0.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.23.3",
+    "@babel/preset-env": "^7.23.3",
+    "babelify": "^10.0.0",
     "browserify": "^17.0.0",
     "eslint": "^8.17.0",
     "jsdom": "^16.3.0",
